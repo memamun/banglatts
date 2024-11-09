@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text to Speech</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Text to Speech Generator</h1>
+        <form method="post">
+            <textarea name="text" rows="10" placeholder="Enter your text here..." required></textarea>
+            <button type="submit">Generate Speech</button>
+        </form>
+        
+        {% if audio_generated %}
+        <div class="audio-player">
+            <audio controls>
+                <source src="{{ url_for('static', filename='output.mp3') }}" type="audio/mpeg">
+                Your browser does not support the audio element.
+            </audio>
+            <br>
+            <a href="{{ url_for('download_audio') }}">Download Audio</a>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
