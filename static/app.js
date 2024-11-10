@@ -714,8 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let hasShownError = false;  // Flag to prevent duplicate error messages
         
         audioPlayer.addEventListener('error', (e) => {
-            console.error('Audio Error:', e);
-            
+            // Silently handle audio errors
             // Only show error if:
             // 1. We haven't shown an error yet
             // 2. There's actually an audio source
