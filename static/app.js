@@ -64,6 +64,26 @@ function formatTime(seconds) {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
+// Add these utility functions at the top
+function saveToLocalStorage(key, value) {
+    try {
+        localStorage.setItem(key, value);
+        return true;
+    } catch (e) {
+        console.error('Error saving to localStorage:', e);
+        return false;
+    }
+}
+
+function getFromLocalStorage(key) {
+    try {
+        return localStorage.getItem(key);
+    } catch (e) {
+        console.error('Error reading from localStorage:', e);
+        return null;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Theme toggle functionality
     const themeToggleBtn = document.getElementById('theme-toggle');
@@ -154,14 +174,48 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(data.error || 'Failed to generate speech');
                 }
 
-                currentAudioUrl = data.audio_url;
-                if (audioPlayer) {
-                    audioPlayer.src = currentAudioUrl;
-                    if (resultSection) {
-                        resultSection.classList.remove('hidden');
+                // Generate a unique key for this audio
+                const audioKey = `tts_audio_${Date.now()}`;
+                
+                // Save to localStorage
+                const savedData = {
+                    audio: data.audio_data,
+                    text: data.text,
+                    timestamp: Date.now(),
+                    voice: currentVoice
+                };
+                
+                if (saveToLocalStorage(audioKey, JSON.stringify(savedData))) {
+                    // Create blob URL from base64 data
+                    const audioBlob = base64ToBlob(data.audio_data, 'audio/mp3');
+                    const audioUrl = URL.createObjectURL(audioBlob);
+
+                    // Update audio player
+                    if (audioPlayer) {
+                        audioPlayer.pause();
+                        audioPlayer.currentTime = 0;
+                        audioPlayer.src = audioUrl;
+                        audioPlayer.load();
+
+                        // Store current audio key for later reference
+                        audioPlayer.dataset.currentKey = audioKey;
+
+                        // Show the result section
+                        if (resultSection) {
+                            resultSection.classList.remove('hidden');
+                        }
+
+                        // Update play button state
+                        const playPauseIcon = playPauseBtn.querySelector('.material-icons');
+                        if (playPauseIcon) {
+                            playPauseIcon.textContent = 'play_arrow';
+                        }
                     }
+
+                    showToast('Audio generated successfully!', 'success');
+                } else {
+                    throw new Error('Failed to save audio to local storage');
                 }
-                showToast('Audio generated successfully!', 'success');
 
             } catch (error) {
                 showError(error.message);
@@ -169,6 +223,14 @@ document.addEventListener('DOMContentLoaded', () => {
             } finally {
                 setLoading(false);
             }
+        });
+    }
+
+    // Add error handling for audio loading
+    if (audioPlayer) {
+        audioPlayer.addEventListener('error', (e) => {
+            console.error('Audio Error:', e);
+            showToast('Error loading audio file', 'error');
         });
     }
 
@@ -373,14 +435,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Download button
     if (downloadBtn) {
         downloadBtn.addEventListener('click', () => {
-            if (currentAudioUrl) {
-                const link = document.createElement('a');
-                link.href = currentAudioUrl;
-                link.download = 'generated_speech.mp3';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+            const currentKey = audioPlayer.dataset.currentKey;
+            if (!currentKey) {
+                showToast('No audio available to download', 'error');
+                return;
             }
+
+            const savedData = JSON.parse(getFromLocalStorage(currentKey));
+            if (!savedData) {
+                showToast('Audio data not found', 'error');
+                return;
+            }
+
+            const blob = base64ToBlob(savedData.audio, 'audio/mp3');
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tts_audio_${Date.now()}.mp3`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         });
     }
 
@@ -512,4 +587,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Close on backdrop click
     document.getElementById('dropdown-backdrop').addEventListener('click', closeVoiceDropdown);
+
+    // Utility function to convert base64 to Blob
+    function base64ToBlob(base64, mimeType) {
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        
+        const byteArray = new Uint8Array(byteNumbers);
+        return new Blob([byteArray], { type: mimeType });
+    }
+
+    // Clean up old audio data (optional)
+    function cleanupOldAudioData() {
+        const MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+        const now = Date.now();
+
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('tts_audio_')) {
+                try {
+                    const data = JSON.parse(localStorage.getItem(key));
+                    if (now - data.timestamp > MAX_AGE) {
+                        localStorage.removeItem(key);
+                    }
+                } catch (e) {
+                    console.error('Error cleaning up audio data:', e);
+                }
+            }
+        });
+    }
 }); 

@@ -989,7 +989,7 @@ input[type="range"]::-moz-range-thumb:hover {
 }
 
 #voice-selector-btn {
-    min-width: 200px;
+    min-width: 80px;
     justify-content: space-between;
 }
 
@@ -1131,3 +1131,123 @@ input[type="range"]::-moz-range-thumb:hover {
 #voice-dropdown > div.fixed.inset-0.z-10.flex.items-center.justify-center.p-4 > div > div.flex.items-center.justify-between.p-4.border-b.border-slate-200 > div > h3{
     color: #1e293b;
 }
+
+.dark #text-input{
+    background-color: #1e293b;
+}
+
+.dark #main-content > div > div > div.bg-white\/80.backdrop-blur-md.rounded-2xl.shadow-xl.p-8.space-y-8.border.border-slate-200\/50 > div.space-y-6 > div.relative.group > div{
+    background-color: #1e293b;
+    color: #e2e8f0;
+    margin-bottom: 2vh;
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
+    border-radius: 1rem;
+    /* padding: 1.5rem; */
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+#main-content > div > div > div.bg-white\/80.backdrop-blur-md.rounded-2xl.shadow-xl.p-8.space-y-8.border.border-slate-200\/50 > div.space-y-6 > div.relative.group > div{
+    background-color: #ffffff;
+    color: #1e293b;
+    margin-bottom: 2vh;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border-radius: 1rem;
+    /* padding: 1.5rem; */
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    background-image: linear-gradient(to bottom right, #ffffff, #f8fafc);
+    backdrop-filter: blur(8px);
+}
+
+#main-content > div > div > div.bg-white\/80.backdrop-blur-md.rounded-2xl.shadow-xl.p-8.space-y-8.border.border-slate-200\/50 > div.space-y-6 > div.relative.group > div:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark button{
+    background-color: #324962;
+    color: #e2e8f0;
+}
+
+button{
+    background-color: #835ef5;
+    color: #e2e8f0;
+}
+
+/* Custom scrollbar styles for textarea */
+textarea {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+    transition: all 0.3s ease;
+}
+
+textarea:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+}
+
+textarea:focus {
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.25);
+    outline: none;
+}
+
+textarea::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    display: none;
+}
+
+/* Show scrollbar only when hovering/scrolling */
+textarea:hover::-webkit-scrollbar,
+textarea:focus::-webkit-scrollbar,
+textarea:active::-webkit-scrollbar {
+    display: block;
+    opacity: 1;
+}
+
+textarea:hover,
+textarea:focus,
+textarea:active {
+    scrollbar-width: thin; /* Firefox */
+}
+
+/* Scrollbar styling when visible */
+textarea:hover::-webkit-scrollbar-track,
+textarea:focus::-webkit-scrollbar-track {
+    background: #1e293b;
+    border-radius: 12px;
+    margin: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+textarea:hover::-webkit-scrollbar-thumb,
+textarea:focus::-webkit-scrollbar-thumb {
+    background: linear-gradient(45deg, #283548, #2d3a4f);
+    border-radius: 12px;
+    border: 2px solid #1e293b;
+    background-clip: padding-box;
+    transition: all 0.2s ease;
+    box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.08);
+}
+
+textarea:hover::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(45deg, #2d3a4f, #324155);
+    border: 2px solid #1e293b;
+    box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.12);
+}
+
+/* Active state effects */
+textarea::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(45deg, #324155, #37485f);
+    box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.15);
+}
+
+
+
+
+
+

@@ -2,43 +2,26 @@ from flask import Flask, render_template, request, send_file, jsonify
 import asyncio
 import edge_tts
 import os
+import base64
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 VOICE = "bn-BD-NabanitaNeural"
-OUTPUT_DIR = "static/audio"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-class TTSError(Exception):
-    pass
-
-async def generate_tts(text: str, voice: str, filename: str):
+async def generate_audio_data(text: str, voice: str):
     try:
         communicate = edge_tts.Communicate(text, voice)
-        submaker = edge_tts.SubMaker()
+        audio_data = bytearray()
         
-        audio_path = os.path.join(OUTPUT_DIR, f"{filename}.mp3")
-        vtt_path = os.path.join(OUTPUT_DIR, f"{filename}.vtt")
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio_data.extend(chunk["data"])
         
-        with open(audio_path, "wb") as file:
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    file.write(chunk["data"])
-                elif chunk["type"] == "WordBoundary":
-                    submaker.create_sub((chunk["offset"], chunk["duration"]), chunk["text"])
-                    
-        with open(vtt_path, "w", encoding="utf-8") as file:
-            file.write(submaker.generate_subs())
-            
-        return audio_path, vtt_path
+        return audio_data
     except Exception as e:
-        raise TTSError(f"Failed to generate TTS: {str(e)}")
+        raise Exception(f"Failed to generate audio: {str(e)}")
 
 @app.route('/api/tts', methods=['POST'])
 def generate_speech():
@@ -46,28 +29,30 @@ def generate_speech():
         if not request.is_json and not request.form:
             return jsonify({'error': 'Invalid request format'}), 400
 
-        # Get text from either JSON or form data
         text = request.json.get('text') if request.is_json else request.form.get('text')
         voice = request.json.get('voice', VOICE) if request.is_json else request.form.get('voice', VOICE)
         
         if not text:
             return jsonify({'error': 'No text provided'}), 400
-            
-        filename = secure_filename(f"tts_{os.urandom(8).hex()}")
         
-        try:
-            audio_path, vtt_path = asyncio.run(generate_tts(text, voice, filename))
-        except TTSError as e:
-            return jsonify({'error': str(e)}), 500
+        # Run async function in sync context
+        audio_data = asyncio.run(generate_audio_data(text, voice))
+        
+        # Convert to base64
+        audio_base64 = base64.b64encode(audio_data).decode('utf-8')
         
         return jsonify({
             'success': True,
-            'audio_url': f"/static/audio/{os.path.basename(audio_path)}",
-            'vtt_url': f"/static/audio/{os.path.basename(vtt_path)}"
+            'audio_data': audio_base64,
+            'text': text
         })
     except Exception as e:
         app.logger.error(f"Error in generate_speech: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 # Error handlers
 @app.errorhandler(413)
