@@ -3,27 +3,275 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Text to Speech</title>
+    <title>Bangla Text to Speech Converter</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
-<body>
-    <div class="container">
-        <h1>Text to Speech Generator</h1>
-        <form method="post">
-            <textarea name="text" rows="10" placeholder="Enter your text here..." required></textarea>
-            <button type="submit">Generate Speech</button>
-        </form>
-        
-        {% if audio_generated %}
-        <div class="audio-player">
-            <audio controls>
-                <source src="{{ url_for('static', filename='output.mp3') }}" type="audio/mpeg">
-                Your browser does not support the audio element.
-            </audio>
-            <br>
-            <a href="{{ url_for('download_audio') }}">Download Audio</a>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-colors duration-300">
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-lg border-b border-slate-200/50 dark:border-slate-700/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Logo section -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg">
+                        <span class="material-icons text-white text-2xl">record_voice_over</span>
+                    </div>
+                    <span class="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Bangla TTS</span>
+                </div>
+
+                <!-- Controls section -->
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <!-- Voice selector - Show on all devices -->
+                    <div class="relative group">
+                        <button id="voice-selector-btn" 
+                            class="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                            <span class="material-icons text-slate-600 dark:text-slate-400">record_voice_over</span>
+                        </button>
+                        
+                        <!-- Modern Popup Dialog -->
+                        <div id="voice-dropdown" class="hidden fixed inset-0 z-[100]">
+                            <!-- Backdrop with blur -->
+                            <div class="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300 opacity-0" id="dropdown-backdrop"></div>
+                            
+                            <!-- Dialog -->
+                            <div class="fixed inset-0 z-10 flex items-center justify-center p-4">
+                                <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-sm w-full mx-auto transform scale-95 opacity-0 transition-all duration-300">
+                                    <!-- Header -->
+                                    <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+                                        <div>
+                                            <h3 class="text-lg font-semibold text-slate-900 dark:text-indigo-600">Select Voice</h3>
+                                            <p class="text-sm text-slate-500 dark:text-slate-400">Choose a voice for text-to-speech conversion</p>
+                                        </div>
+                                        <button id="voice-close-btn" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                            <span class="material-icons text-slate-500 dark:text-slate-400">close</span>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Voice Options -->
+                                    <div class="p-4 space-y-2">
+                                        <button class="voice-option w-full flex items-center space-x-3 p-4 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-700/50" data-voice="bn-BD-NabanitaNeural">
+                                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
+                                                <span class="material-icons text-white">record_voice_over</span>
+                                            </div>
+                                            <div class="flex-1 text-left">
+                                                <div class="font-medium text-slate-900 dark:text-white">Nabanita</div>
+                                                <div class="text-sm text-slate-500 dark:text-slate-400">Female Voice</div>
+                                            </div>
+                                            <div class="voice-check hidden">
+                                                <span class="material-icons text-indigo-600 dark:text-indigo-400">check_circle</span>
+                                            </div>
+                                        </button>
+
+                                        <button class="voice-option w-full flex items-center space-x-3 p-4 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-700/50" data-voice="bn-BD-PradeepNeural">
+                                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+                                                <span class="material-icons text-white">record_voice_over</span>
+                                            </div>
+                                            <div class="flex-1 text-left">
+                                                <div class="font-medium text-slate-900 dark:text-white">Pradeep</div>
+                                                <div class="text-sm text-slate-500 dark:text-slate-400">Male Voice</div>
+                                            </div>
+                                            <div class="voice-check hidden">
+                                                <span class="material-icons text-indigo-600 dark:text-indigo-400">check_circle</span>
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Theme toggle -->
+                    <button id="theme-toggle" 
+                        class="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                        <span class="material-icons text-slate-600 dark:text-slate-400">dark_mode</span>
+                    </button>
+                </div>
+            </div>
         </div>
-        {% endif %}
-    </div>
+    </nav>
+
+    <!-- Main content with proper padding -->
+    <main id="main-content" class="pt-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto min-h-screen">
+        <div class="py-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Left Column - Input Section -->
+                <div class="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-8 space-y-8 border border-slate-200/50">
+                    <div class="text-center space-y-3">
+                        <h1 class="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">বাংলা টেক্সট টু স্পীচ</h1>
+                        <p class="text-slate-600 text-lg">Convert your Bangla text into natural-sounding speech</p>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="relative group">
+                            <textarea 
+                                id="text-input"
+                                class="w-full h-64 p-6 border-2 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none text-lg bg-slate-50 hover:bg-white transition-colors duration-200"
+                                placeholder="আপনর টেক্সট এখানে লিখুন..."
+                                required
+                            ></textarea>
+                            <div class="absolute bottom-4 right-4 text-sm text-slate-500 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-lg shadow-sm">
+                                <span id="char-count">0</span>/1000
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <button 
+                                id="generate-btn"
+                                class="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 px-8 rounded-xl hover:from-indigo-500 hover:to-purple-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                                disabled
+                            >
+                                <span class="normal-state inline-flex items-center justify-center w-full">
+                                    <span class="material-icons mr-3">play_circle</span>
+                                    Generate Speech
+                                </span>
+                                <span class="loading-state hidden items-center justify-center w-full">
+                                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Processing...
+                                </span>
+                            </button>
+                            
+                            <button 
+                                id="clear-btn"
+                                class="px-8 py-4 bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 text-lg font-medium flex items-center justify-center shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 group/clear">
+                                <span class="material-icons mr-3 group-hover/clear:rotate-12 transition-transform duration-300">delete_outline</span>
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column - Result Section -->
+                <div id="result-section" class="hidden lg:block bg-white/90 backdrop-blur-lg rounded-2xl shadow-2xl p-8 space-y-6 border border-slate-200/50 relative overflow-hidden">
+                    <!-- Decorative elements -->
+                    <div class="absolute inset-0 bg-grid-pattern opacity-5"></div>
+                    <div class="absolute -right-24 -top-24 w-48 h-48 bg-indigo-400 rounded-full blur-3xl opacity-10 animate-pulse"></div>
+                    <div class="absolute -left-24 -bottom-24 w-48 h-48 bg-purple-400 rounded-full blur-3xl opacity-10 animate-pulse delay-700"></div>
+                    
+                    <!-- Header section -->
+                    <div class="flex items-center justify-between mb-8 relative">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg relative group">
+                                <span class="material-icons text-2xl text-white animate-wave">graphic_eq</span>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Generated Audio</h3>
+                                <p class="text-sm text-slate-500">Ready to play</p>
+                            </div>
+                        </div>
+                        <div class="text-sm flex items-center px-4 py-2 rounded-full bg-indigo-50/50 border border-indigo-100/20 shadow-sm">
+                            <span class="material-icons text-indigo-500 mr-2 animate-pulse">equalizer</span>
+                            <span class="text-indigo-600">High Quality</span>
+                        </div>
+                    </div>
+
+                    <!-- Modern Audio Player -->
+                    <div class="modern-audio-player rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 p-8 shadow-inner relative overflow-hidden group border border-slate-200/50">
+                        <audio id="audio-player">
+                            <source src="" type="audio/mpeg">
+                        </audio>
+
+                        <div class="space-y-8 relative">
+                            <!-- Main Controls -->
+                            <div class="flex items-center space-x-6">
+                                <!-- Play/Pause Button -->
+                                <button id="playPauseBtn" 
+                                    class="w-16 h-16 flex items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-lg transform hover:-translate-y-0.5">
+                                    <span class="material-icons text-3xl">play_arrow</span>
+                                </button>
+                                
+                                <!-- Time and Progress -->
+                                <div class="flex-1">
+                                    <div class="flex justify-between text-sm font-medium text-slate-700 mb-2">
+                                        <span id="currentTime" class="tabular-nums">0:00</span>
+                                        <span id="duration" class="tabular-nums">0:00</span>
+                                    </div>
+                                    
+                                    <!-- Progress Bar -->
+                                    <div class="progress-container relative h-3 bg-white/50 rounded-full cursor-pointer group/progress hover:h-4 transition-all duration-200">
+                                        <div class="progress absolute left-0 top-0 h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"></div>
+                                        <div class="progress-handle absolute top-1/2 -mt-2 -ml-2 w-4 h-4 bg-white border-2 border-indigo-600 rounded-full hidden group-hover/progress:block shadow-lg"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Additional Controls -->
+                            <div class="flex items-center justify-between bg-white/50 rounded-2xl p-3">
+                                <!-- Left Controls -->
+                                <div class="flex items-center space-x-3">
+                                    <!-- Loop Button -->
+                                    <button id="loopBtn" class="p-2.5 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 transition-all duration-200">
+                                        <span class="material-icons">repeat</span>
+                                    </button>
+                                    
+                                    <!-- Speed Control -->
+                                    <div class="relative group/speed">
+                                        <button id="speedBtn" class="p-2.5 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 transition-all duration-200">
+                                            <span class="material-icons">speed</span>
+                                        </button>
+                                        <div class="speed-menu hidden group-hover/speed:block absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-lg p-2 min-w-[120px]">
+                                            <div class="space-y-1">
+                                                <button class="w-full px-3 py-1.5 text-left text-sm hover:bg-indigo-50 rounded-lg transition-colors" data-speed="0.5">0.5x</button>
+                                                <button class="w-full px-3 py-1.5 text-left text-sm hover:bg-indigo-50 rounded-lg transition-colors" data-speed="1">1x</button>
+                                                <button class="w-full px-3 py-1.5 text-left text-sm hover:bg-indigo-50 rounded-lg transition-colors" data-speed="1.5">1.5x</button>
+                                                <button class="w-full px-3 py-1.5 text-left text-sm hover:bg-indigo-50 rounded-lg transition-colors" data-speed="2">2x</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Volume Control -->
+                                <div class="volume-control relative group/volume">
+                                    <button class="volume-btn p-2.5 rounded-xl bg-gradient-to-br from-indigo-600 to-indigo-700 text-white hover:from-indigo-500 hover:to-indigo-600 transition-all duration-300 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0">
+                                        <span class="material-icons group-hover/volume:scale-110 transition-transform duration-300">volume_up</span>
+                                    </button>
+                                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 invisible group-hover/volume:opacity-100 group-hover/volume:visible transition-all duration-200 bg-white rounded-xl shadow-lg p-4 w-48">
+                                        <div class="relative flex items-center">
+                                            <input type="range" 
+                                                id="volume-slider" 
+                                                class="w-full h-2 bg-indigo-100 rounded-full appearance-none cursor-pointer"
+                                                min="0" 
+                                                max="100" 
+                                                value="100">
+                                            <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs bg-indigo-600 text-white px-2 py-1 rounded-md shadow-sm">
+                                                <span id="volume-value">100</span>%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="flex justify-end space-x-4 pt-4 border-t border-white/50">
+                                <button id="copy-btn" 
+                                    class="flex items-center px-5 py-2.5 rounded-xl transition-all duration-200 hover:shadow-md">
+                                    <span class="material-icons">content_copy</span>
+                                    <span class="font-medium">Copy</span>
+                                </button>
+                                <button id="download-btn" 
+                                    class="flex items-center px-5 py-2.5 text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+                                    <span class="material-icons mr-2">download</span>
+                                    <span>Download</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-4"></div>
+
+    <!-- Error Message -->
+    <div id="error-message" class="hidden fixed bottom-4 left-4 p-6 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-xl shadow-lg max-w-md"></div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
