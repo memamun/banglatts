@@ -131,6 +131,36 @@ function saveToLocalStorage(key, value) {
     }
 }
 
+// Add this function to clear previous audio
+function clearPreviousAudio() {
+    try {
+        const audioPlayer = document.getElementById('audio-player');
+        if (!audioPlayer) {
+            console.warn('Audio player element not found');
+            return false;
+        }
+
+        // Get current audio key from player
+        const currentKey = audioPlayer.dataset.currentKey;
+        
+        // Clear from localStorage if key exists
+        if (currentKey) {
+            localStorage.removeItem(currentKey);
+        }
+        
+        // Clear audio player
+        audioPlayer.pause();
+        audioPlayer.src = '';
+        audioPlayer.load();
+        delete audioPlayer.dataset.currentKey;
+        
+        return true;
+    } catch (error) {
+        console.error('Error clearing previous audio:', error);
+        return false;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Theme toggle functionality
     const themeToggleBtn = document.getElementById('theme-toggle');
@@ -206,6 +236,9 @@ document.addEventListener('DOMContentLoaded', () => {
             hideError();
 
             try {
+                // Clear previous audio before generating new one
+                clearPreviousAudio();
+
                 const formData = new FormData();
                 formData.append('text', textInput.value);
                 formData.append('voice', currentVoice);
@@ -221,8 +254,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(data.error || 'Failed to generate speech');
                 }
 
-                // Check storage space before saving
-                const audioKey = `${STORAGE_KEY_PREFIX}${Date.now()}`;
+                // Generate new audio key
+                const audioKey = `tts_audio_${Date.now()}`;
                 const savedData = {
                     audio: data.audio_data,
                     text: data.text,
@@ -230,7 +263,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     voice: currentVoice
                 };
 
-                if (saveToLocalStorage(audioKey, JSON.stringify(savedData))) {
+                try {
+                    // Save new audio data
+                    localStorage.setItem(audioKey, JSON.stringify(savedData));
+                    
                     // Create blob URL from base64 data
                     const audioBlob = base64ToBlob(data.audio_data, 'audio/mp3');
                     const audioUrl = URL.createObjectURL(audioBlob);
@@ -247,6 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             resultSection.classList.remove('hidden');
                         }
 
+                        // Update play button icon
                         const playPauseIcon = playPauseBtn?.querySelector('.material-icons');
                         if (playPauseIcon) {
                             playPauseIcon.textContent = 'play_arrow';
@@ -254,8 +291,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     showToast('Audio generated successfully!', 'success');
-                } else {
-                    throw new Error('Failed to save audio. Storage might be full.');
+                } catch (storageError) {
+                    console.error('Storage error:', storageError);
+                    throw new Error('Failed to save audio. Please try again.');
                 }
 
             } catch (error) {
@@ -267,13 +305,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Add error handling for audio loading
-    if (audioPlayer) {
-        audioPlayer.addEventListener('error', (e) => {
-            console.error('Audio Error:', e);
-            showToast('Error loading audio file', 'error');
-        });
-    }
+    // // Add error handling for audio loading
+    // if (audioPlayer) {
+    //     audioPlayer.addEventListener('error', (e) => {
+    //         console.error('Audio Error:', e);
+    //         showToast('Error loading audio file', 'error');
+    //     });
+    // }
 
     // Audio player controls
     if (audioPlayer) {
@@ -461,85 +499,52 @@ document.addEventListener('DOMContentLoaded', () => {
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
             try {
-                // Get current audio key from player
-                const currentKey = audioPlayer?.dataset?.currentKey;
-                
-                // Clear audio player
-                if (audioPlayer) {
-                    audioPlayer.pause();
-                    audioPlayer.src = ''; // Clear source
-                    audioPlayer.removeAttribute('src'); // Ensure source is removed
-                    audioPlayer.load(); // Reload to clear any cached audio
-                    delete audioPlayer.dataset.currentKey; // Remove stored key
-                }
-
-                // Clear progress and time displays
-                const progress = document.querySelector('.progress');
-                const currentTimeEl = document.getElementById('currentTime');
-                const durationEl = document.getElementById('duration');
-                
-                if (progress) progress.style.width = '0%';
-                if (currentTimeEl) currentTimeEl.textContent = '0:00';
-                if (durationEl) durationEl.textContent = '0:00';
-
-                // Clear from localStorage if key exists
-                if (currentKey) {
-                    localStorage.removeItem(currentKey);
-                }
-
-                // Hide result section
-                const resultSection = document.getElementById('result-section');
-                if (resultSection) {
-                    resultSection.classList.add('hidden');
-                }
-
-                // Clear text input
-                const textInput = document.getElementById('text-input');
-                if (textInput) {
-                    textInput.value = '';
-                }
-
-                // Reset play button icon
-                const playPauseBtn = document.getElementById('play-pause-btn');
-                if (playPauseBtn) {
-                    const playPauseIcon = playPauseBtn.querySelector('.material-icons');
-                    if (playPauseIcon) {
-                        playPauseIcon.textContent = 'play_arrow';
+                console.log('Clear button clicked');
+                // Clear all audio files from storage
+                if (clearAllAudioFiles()) {
+                    // Reset audio player
+                    if (audioPlayer) {
+                        audioPlayer.pause();
+                        audioPlayer.src = '';
+                        audioPlayer.load();
+                        delete audioPlayer.dataset.currentKey;
                     }
+
+                    // Reset UI elements
+                    const progress = document.querySelector('.progress');
+                    const currentTimeEl = document.getElementById('currentTime');
+                    const durationEl = document.getElementById('duration');
+                    
+                    if (progress) progress.style.width = '0%';
+                    if (currentTimeEl) currentTimeEl.textContent = '0:00';
+                    if (durationEl) durationEl.textContent = '0:00';
+
+                    // Hide result section
+                    if (resultSection) {
+                        resultSection.classList.add('hidden');
+                    }
+
+                    // Clear text input
+                    if (textInput) {
+                        textInput.value = '';
+                    }
+
+                    // Reset play button icon
+                    if (playPauseBtn) {
+                        const playPauseIcon = playPauseBtn.querySelector('.material-icons');
+                        if (playPauseIcon) {
+                            playPauseIcon.textContent = 'play_arrow';
+                        }
+                    }
+
+                    showToast('All audio files cleared successfully', 'success');
+                } else {
+                    showToast('Error clearing audio files', 'error');
                 }
-
-                showToast('Cleared successfully', 'success');
             } catch (error) {
-                console.error('Error clearing audio:', error);
-                showToast('Error clearing audio', 'error');
+                console.error('Error in clear operation:', error);
+                showToast('Error clearing audio files', 'error');
             }
-        });
-    }
-
-    // Download button
-    if (downloadBtn) {
-        downloadBtn.addEventListener('click', () => {
-            const currentKey = audioPlayer.dataset.currentKey;
-            if (!currentKey) {
-                showToast('No audio available to download', 'error');
-                return;
-            }
-
-            const savedData = JSON.parse(getFromLocalStorage(currentKey));
-            if (!savedData) {
-                showToast('Audio data not found', 'error');
-                return;
-            }
-
-            const blob = base64ToBlob(savedData.audio, 'audio/mp3');
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `tts_audio_${Date.now()}.mp3`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
         });
     }
 
@@ -706,12 +711,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update audio error handling
     if (audioPlayer) {
+        let hasShownError = false;  // Flag to prevent duplicate error messages
+        
         audioPlayer.addEventListener('error', (e) => {
             console.error('Audio Error:', e);
-            // Only show error toast if there's actually an audio source
-            if (audioPlayer.src && audioPlayer.src !== window.location.href) {
+            
+            // Only show error if:
+            // 1. We haven't shown an error yet
+            // 2. There's actually an audio source
+            // 3. The source isn't the default page URL
+            if (!hasShownError && 
+                audioPlayer.src && 
+                audioPlayer.src !== window.location.href) {
+                    
+                hasShownError = true;
                 showToast('Error loading audio file', 'error');
+                
+                // Reset error flag after a delay
+                setTimeout(() => {
+                    hasShownError = false;
+                }, 3000);
             }
+        });
+
+        // Reset error flag when new audio is loaded
+        audioPlayer.addEventListener('loadeddata', () => {
+            hasShownError = false;
         });
     }
 
@@ -726,5 +751,118 @@ document.addEventListener('DOMContentLoaded', () => {
     const storageInfoBtn = document.getElementById('storage-info-btn');
     if (storageInfoBtn) {
         storageInfoBtn.addEventListener('click', updateStorageInfo);
+    }
+
+    // For the favicon 404 error, add this to your static folder
+    const link = document.querySelector("link[rel~='icon']");
+    if (!link) {
+        const newLink = document.createElement('link');
+        newLink.rel = 'icon';
+        newLink.href = 'data:,'; // Empty favicon
+        document.head.appendChild(newLink);
+    }
+
+    // Add this with your other utility functions at the top of the file
+    function getFromLocalStorage(key) {
+        try {
+            const item = localStorage.getItem(key);
+            return item ? item : null;
+        } catch (e) {
+            console.error('Error reading from localStorage:', e);
+            return null;
+        }
+    }
+
+    // Update the audio player initialization
+    if (audioPlayer) {
+        let hasShownError = false;
+        
+        audioPlayer.addEventListener('error', (e) => {
+            // Only show error if there's actually an audio source
+            if (!hasShownError && audioPlayer.src && audioPlayer.src !== window.location.href) {
+                console.error('Audio Error:', e);
+                hasShownError = true;
+                showToast('Error loading audio file', 'error');
+                
+                // Reset error flag after a delay
+                setTimeout(() => {
+                    hasShownError = false;
+                }, 3000);
+            }
+        });
+
+        // Reset error flag when new audio is loaded successfully
+        audioPlayer.addEventListener('loadeddata', () => {
+            hasShownError = false;
+        });
+    }
+
+    // Update download button handler
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', () => {
+            try {
+                const currentKey = audioPlayer?.dataset?.currentKey;
+                if (!currentKey) {
+                    showToast('No audio available to download', 'error');
+                    return;
+                }
+
+                const savedDataString = getFromLocalStorage(currentKey);
+                if (!savedDataString) {
+                    showToast('Audio data not found', 'error');
+                    return;
+                }
+
+                const savedData = JSON.parse(savedDataString);
+                if (!savedData || !savedData.audio) {
+                    showToast('Invalid audio data', 'error');
+                    return;
+                }
+
+                // Create and trigger download
+                const blob = base64ToBlob(savedData.audio, 'audio/mp3');
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `tts_audio_${Date.now()}.mp3`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showToast('Download started!', 'success');
+            } catch (error) {
+                console.error('Error handling download:', error);
+                showToast('Error downloading audio', 'error');
+            }
+        });
+    }
+
+    // Move clearAllAudioFiles outside of any event listener or DOMContentLoaded
+    function clearAllAudioFiles() {
+        try {
+            // Get all keys from localStorage
+            const keys = Object.keys(localStorage);
+            
+            // Filter for audio keys (they should start with STORAGE_KEY_PREFIX)
+            const audioKeys = keys.filter(key => key.startsWith(STORAGE_KEY_PREFIX));
+            
+            if (audioKeys.length === 0) {
+                console.log('No audio files found to clear');
+                return true;
+            }
+            
+            // Remove all audio entries
+            audioKeys.forEach(key => {
+                console.log('Removing key:', key);
+                localStorage.removeItem(key);
+            });
+            
+            console.log('Cleared', audioKeys.length, 'audio files');
+            return true;
+        } catch (error) {
+            console.error('Error clearing audio files:', error);
+            return false;
+        }
     }
 }); 

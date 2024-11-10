@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, jsonify
+from flask import Flask, render_template, request, send_file, jsonify, send_from_directory
 import asyncio
 import edge_tts
 import os
@@ -66,6 +66,26 @@ def internal_server_error(error):
 @app.errorhandler(404)
 def not_found_error(error):
     return jsonify({'error': 'Not found'}), 404
+
+# Add favicon route
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(
+        os.path.join(app.root_path, 'static'),
+        'favicon.ico',
+        mimetype='image/vnd.microsoft.icon'
+    )
+
+# Create a simple favicon if it doesn't exist
+def create_default_favicon():
+    favicon_path = os.path.join(app.root_path, 'static', 'favicon.ico')
+    if not os.path.exists(favicon_path):
+        # Create an empty favicon
+        with open(favicon_path, 'wb') as f:
+            f.write(b'\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+
+# Call this when app starts
+create_default_favicon()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
