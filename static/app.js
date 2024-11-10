@@ -64,23 +64,70 @@ function formatTime(seconds) {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-// Add these utility functions at the top
-function saveToLocalStorage(key, value) {
-    try {
-        localStorage.setItem(key, value);
-        return true;
-    } catch (e) {
-        console.error('Error saving to localStorage:', e);
-        return false;
+// Storage management utilities
+const STORAGE_KEY_PREFIX = 'tts_audio_';
+const MAX_ITEMS = 10; // Maximum number of audio items to keep
+
+function getStorageUsage() {
+    let total = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith(STORAGE_KEY_PREFIX)) {
+            total += localStorage.getItem(key).length;
+        }
+    }
+    return total;
+}
+
+function cleanupOldestAudio() {
+    const audioItems = [];
+    
+    // Collect all audio items
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith(STORAGE_KEY_PREFIX)) {
+            try {
+                const data = JSON.parse(localStorage.getItem(key));
+                audioItems.push({
+                    key: key,
+                    timestamp: data.timestamp
+                });
+            } catch (e) {
+                localStorage.removeItem(key); // Remove invalid items
+            }
+        }
+    }
+    
+    // Sort by timestamp (oldest first)
+    audioItems.sort((a, b) => a.timestamp - b.timestamp);
+    
+    // Remove oldest items until we're under the limit
+    while (audioItems.length > MAX_ITEMS) {
+        const oldest = audioItems.shift();
+        localStorage.removeItem(oldest.key);
     }
 }
 
-function getFromLocalStorage(key) {
+function saveToLocalStorage(key, value) {
     try {
-        return localStorage.getItem(key);
+        // Try to save directly first
+        localStorage.setItem(key, value);
+        return true;
     } catch (e) {
-        console.error('Error reading from localStorage:', e);
-        return null;
+        if (e.name === 'QuotaExceededError') {
+            try {
+                // Clean up old items and try again
+                cleanupOldestAudio();
+                localStorage.setItem(key, value);
+                return true;
+            } catch (retryError) {
+                console.error('Error saving to localStorage after cleanup:', retryError);
+                showToast('Storage full. Please clear some items manually.', 'error');
+                return false;
+            }
+        }
+        console.error('Error saving to localStorage:', e);
+        return false;
     }
 }
 
@@ -174,17 +221,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(data.error || 'Failed to generate speech');
                 }
 
-                // Generate a unique key for this audio
-                const audioKey = `tts_audio_${Date.now()}`;
-                
-                // Save to localStorage
+                // Check storage space before saving
+                const audioKey = `${STORAGE_KEY_PREFIX}${Date.now()}`;
                 const savedData = {
                     audio: data.audio_data,
                     text: data.text,
                     timestamp: Date.now(),
                     voice: currentVoice
                 };
-                
+
                 if (saveToLocalStorage(audioKey, JSON.stringify(savedData))) {
                     // Create blob URL from base64 data
                     const audioBlob = base64ToBlob(data.audio_data, 'audio/mp3');
@@ -196,17 +241,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         audioPlayer.currentTime = 0;
                         audioPlayer.src = audioUrl;
                         audioPlayer.load();
-
-                        // Store current audio key for later reference
                         audioPlayer.dataset.currentKey = audioKey;
 
-                        // Show the result section
                         if (resultSection) {
                             resultSection.classList.remove('hidden');
                         }
 
-                        // Update play button state
-                        const playPauseIcon = playPauseBtn.querySelector('.material-icons');
+                        const playPauseIcon = playPauseBtn?.querySelector('.material-icons');
                         if (playPauseIcon) {
                             playPauseIcon.textContent = 'play_arrow';
                         }
@@ -214,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     showToast('Audio generated successfully!', 'success');
                 } else {
-                    throw new Error('Failed to save audio to local storage');
+                    throw new Error('Failed to save audio. Storage might be full.');
                 }
 
             } catch (error) {
@@ -419,16 +460,59 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clear button
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
-            if (textInput) textInput.value = '';
-            if (charCount) charCount.textContent = '0';
-            if (generateBtn) generateBtn.disabled = true;
-            if (resultSection) resultSection.classList.add('hidden');
-            if (audioPlayer) {
-                audioPlayer.pause();
-                audioPlayer.currentTime = 0;
-                audioPlayer.src = '';
+            try {
+                // Get current audio key from player
+                const currentKey = audioPlayer?.dataset?.currentKey;
+                
+                // Clear audio player
+                if (audioPlayer) {
+                    audioPlayer.pause();
+                    audioPlayer.src = ''; // Clear source
+                    audioPlayer.removeAttribute('src'); // Ensure source is removed
+                    audioPlayer.load(); // Reload to clear any cached audio
+                    delete audioPlayer.dataset.currentKey; // Remove stored key
+                }
+
+                // Clear progress and time displays
+                const progress = document.querySelector('.progress');
+                const currentTimeEl = document.getElementById('currentTime');
+                const durationEl = document.getElementById('duration');
+                
+                if (progress) progress.style.width = '0%';
+                if (currentTimeEl) currentTimeEl.textContent = '0:00';
+                if (durationEl) durationEl.textContent = '0:00';
+
+                // Clear from localStorage if key exists
+                if (currentKey) {
+                    localStorage.removeItem(currentKey);
+                }
+
+                // Hide result section
+                const resultSection = document.getElementById('result-section');
+                if (resultSection) {
+                    resultSection.classList.add('hidden');
+                }
+
+                // Clear text input
+                const textInput = document.getElementById('text-input');
+                if (textInput) {
+                    textInput.value = '';
+                }
+
+                // Reset play button icon
+                const playPauseBtn = document.getElementById('play-pause-btn');
+                if (playPauseBtn) {
+                    const playPauseIcon = playPauseBtn.querySelector('.material-icons');
+                    if (playPauseIcon) {
+                        playPauseIcon.textContent = 'play_arrow';
+                    }
+                }
+
+                showToast('Cleared successfully', 'success');
+            } catch (error) {
+                console.error('Error clearing audio:', error);
+                showToast('Error clearing audio', 'error');
             }
-            showToast('Text cleared!', 'info');
         });
     }
 
@@ -618,5 +702,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+    }
+
+    // Update audio error handling
+    if (audioPlayer) {
+        audioPlayer.addEventListener('error', (e) => {
+            console.error('Audio Error:', e);
+            // Only show error toast if there's actually an audio source
+            if (audioPlayer.src && audioPlayer.src !== window.location.href) {
+                showToast('Error loading audio file', 'error');
+            }
+        });
+    }
+
+    // Add a function to show storage usage
+    function updateStorageInfo() {
+        const usedSpace = getStorageUsage();
+        const usedMB = (usedSpace / (1024 * 1024)).toFixed(2);
+        showToast(`Storage used: ${usedMB}MB`, 'info');
+    }
+
+    // Optional: Add a button to show storage usage
+    const storageInfoBtn = document.getElementById('storage-info-btn');
+    if (storageInfoBtn) {
+        storageInfoBtn.addEventListener('click', updateStorageInfo);
     }
 }); 
